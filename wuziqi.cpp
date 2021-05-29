@@ -889,3 +889,13 @@ std::string Wuziqi::get_board_code()
     }
     return code;
 }
+
+void Wuziqi::get_move_minimax(int &row, int &col)
+{
+
+}
+
+void Wuziqi::get_move_minimax_ab(int &row, int &col)
+{
+
+}
