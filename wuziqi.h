@@ -43,8 +43,10 @@ private:
     int count_closed_two(int color);
     int count_open_three(int color);
     int count_closed_three(int color);
+    int count_disjointed_three(int color);
     int count_open_four(int color);
     int count_closed_four(int color);
+    int count_disjointed_four(int color);
     int count_five(int color);
     bool find_open_four(int color, int &row, int &col);
     bool find_win_position(int color, int &row, int &col);

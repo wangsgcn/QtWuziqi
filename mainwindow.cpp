@@ -29,7 +29,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     this->game_status = 0;
     this->setup_board();
-    this->reset_board();
+    this->initialize_game();
 }
 
 MainWindow::~MainWindow()
@@ -94,9 +94,12 @@ void MainWindow::on_comboBox_currentTextChanged(const QString &arg1)
 void MainWindow::mouseMoveEvent(QMouseEvent *event)
 {
     int row, col, x, y;
-    x = event->x();
-    y = event->y();
-    if(this->get_row_col(x, y, row, col)==true)
+    //x = event->x();  x() is deprecated in Qt.
+    //y = event->y();  y() is deprecated in Qt.y
+    x = event->position().x();
+    y = event->position().y();
+
+    if(this->get_row_col(x, y, row, col)==true && this->board[row][col]==0) // current point is not taken
     {
         this->ui->centralwidget->setCursor(Qt::PointingHandCursor);
     }
@@ -114,9 +117,11 @@ void MainWindow::mousePressEvent(QMouseEvent *event)
     if(this->game_status==1)
     {
         int x, y, row, col, move_row, move_col, winer_color;
-        x = event->x();
-        y = event->y();
-        if(this->get_row_col(x, y, row, col)==true)
+        // x = event->x();
+        // y = event->y();
+        x = event->position().x();
+        y = event->position().y();
+        if(this->get_row_col(x, y, row, col)==true && this->board[row][col]==0) // the current position is not taken
         {
             this->board[row][col] = 1; // player move
             this->game->set_stone(row, col, 1);
@@ -420,7 +425,6 @@ void MainWindow::on_pushButton_clicked()
     this->game_status = 1;
     this->game = new Wuziqi(this->game_size, this->lever);
     this->setup_board();
-    //this->reset_board();
     this->initialize_game();
     this->disable_input();
     this->update();

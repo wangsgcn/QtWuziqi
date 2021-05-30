@@ -28,7 +28,7 @@ Wuziqi::Wuziqi(int size, int lever)
     }
     this->c5pts = 200000.0;
     this->o4pts = 20000.0;
-    this->d3pts = 10000.0;
+    this->d3pts = 10000.0;     // double three
     this->c4pts = 2000.0;
     this->o3pts = 2000.0;
     this->c3pts = 20.0;
@@ -297,6 +297,56 @@ int Wuziqi::count_closed_three(int color)
     return count;
 }
 
+int Wuziqi::count_disjointed_three(int color)
+{
+    int count=0;
+    int a = color;
+    // (1) 0 a a 0 a
+    // (2) A a 0 a 0
+
+    int p1[5] = {0, a, a, 0, a};
+    int p2[5] = {a, a, 0, a, 0};
+
+    for(int r=0; r<this->size; r++)
+    {
+        for(int c=0; c<this->size; c++)
+        {
+            // horizontal direction
+            int hrows[5] = {r, r,   r,   r,   r  };
+            int hcols[5] = {c, c+1, c+2, c+3, c+4};
+            if(this->inside(r,c+4) && (this->check(5, hrows, hcols, p1) || this->check(5, hrows, hcols, p2)))
+            {
+                count++;
+            }
+
+            // vertical direction
+            int vrows[5] = {r, r+1, r+2, r+3, r+4};
+            int vcols[5] = {c, c,   c,   c,   c  };
+            if(this->inside(r+4,c) && (this->check(5, vrows, vcols, p1) || this->check(5, vrows, vcols, p2)))
+            {
+                count++;
+            }
+
+            // upper right diagonal direction
+            int urrows[5] = {r, r-1, r-2, r-3, r-4};
+            int urcols[5] = {c, c+1, c+2, c+3, c+4};
+            if(this->inside(r-4,c+4) && (this->check(5, urrows, urcols, p1) || this->check(5, urrows, urcols, p2)))
+            {
+                count++;
+            }
+
+            // lower right diagonal direction
+            int lrrows[5] = {r, r+1, r+2, r+3, r+4};
+            int lrcols[5] = {c, c+1, c+2, c+3, c+4};
+            if(this->inside(r+4,c+4) && (this->check(5, lrrows, lrcols, p1) || this->check(5, lrrows, lrcols, p2)))
+            {
+                count++;
+            }
+        }
+    }
+    return count;
+}
+
 int Wuziqi::count_open_four(int color)
 {
     int count = 0;
@@ -385,6 +435,56 @@ int Wuziqi::count_closed_four(int color)
             int lrrows[6] = {r, r+1, r+2, r+3, r+4, r+5};
             int lrcols[6] = {c, c+1, c+2, c+3, c+4, c+5};
             if(this->inside(r+5,c+5) && (this->check(6, lrrows, lrcols, p1) || this->check(6, lrrows, lrcols, p2)))
+            {
+                count++;
+            }
+        }
+    }
+    return count;
+}
+
+
+int Wuziqi::count_disjointed_four(int color)
+{
+    int count = 0;
+    int a = color;
+    //A a a 0 a
+    //A 0 a a a
+    int p1[5] = {a, a, a, 0, a};
+    int p2[5] = {a, 0, a, a, a};
+
+    for(int r=0; r<this->size; r++)
+    {
+        for(int c=0; c<this->size; c++)
+        {
+            // horizontal direction
+            int hrows[5] = {r, r,   r,   r,   r  };
+            int hcols[5] = {c, c+1, c+2, c+3, c+4};
+            if(this->inside(r,c+4) && (this->check(5, hrows, hcols, p1) || this->check(5, hrows, hcols, p2)))
+            {
+                count++;
+            }
+
+            // vertical direction
+            int vrows[5] = {r, r+1, r+2, r+3, r+4};
+            int vcols[5] = {c, c,   c,   c,   c  };
+            if(this->inside(r+4,c) && (this->check(5, vrows, vcols, p1) || this->check(5, vrows, vcols, p2)))
+            {
+                count++;
+            }
+
+            // upper right diagonal direction
+            int urrows[5] = {r, r-1, r-2, r-3, r-4};
+            int urcols[5] = {c, c+1, c+2, c+3, c+4};
+            if(this->inside(r-4,c+4) && (this->check(5, urrows, urcols, p1) || this->check(5, urrows, urcols, p2)))
+            {
+                count++;
+            }
+
+            // lower right diagonal direction
+            int lrrows[5] = {r, r+1, r+2, r+3, r+4};
+            int lrcols[5] = {c, c+1, c+2, c+3, c+4};
+            if(this->inside(r+4,c+4) && (this->check(5, lrrows, lrcols, p1) || this->check(5, lrrows, lrcols, p2)))
             {
                 count++;
             }
@@ -599,8 +699,10 @@ float Wuziqi::evaluate_score_greedy(int row, int col)
     int c_c2_cnt = this->count_closed_two(2);
     int c_o3_cnt = this->count_open_three(2);
     int c_c3_cnt = this->count_closed_three(2);
+    int c_j3_cnt = this->count_disjointed_three(2);
     int c_o4_cnt = this->count_open_four(2);
     int c_c4_cnt = this->count_closed_four(2);
+    int c_j4_cnt = this->count_disjointed_four(2);
     int c_c5_cnt = this->count_five(2);
     this->B[row][col] = 0; // reset the point to be empty
     int c_o3_cnt0 = this->count_open_three(2);
@@ -611,8 +713,10 @@ float Wuziqi::evaluate_score_greedy(int row, int col)
                          + c_o3_cnt * this->o3pts
                          + c_c3_cnt * this->c3pts
                          + c_d3_cnt * this->d3pts
+                         + c_j3_cnt * this->c3pts * 0.8   // disjointed three uses 0.8*c3pts
                          + c_o4_cnt * this->o4pts
                          + c_c4_cnt * this->c4pts
+                         + c_j4_cnt * this->c4pts * 0.8   // disjointed four uses 0.8*c4pts
                          + c_c5_cnt * this->c5pts;
 
     // evaluate the point (row,col) for player
@@ -621,8 +725,10 @@ float Wuziqi::evaluate_score_greedy(int row, int col)
     int p_c2_cnt = this->count_closed_two(1);
     int p_o3_cnt = this->count_open_three(1);
     int p_c3_cnt = this->count_closed_three(1);
+    int p_j3_cnt = this->count_disjointed_three(1);
     int p_o4_cnt = this->count_open_four(1);
     int p_c4_cnt = this->count_closed_four(1);
+    int p_j4_cnt = this->count_disjointed_four(1);
     int p_c5_cnt = this->count_five(1);
     this->B[row][col] = 0; // reset the point to be empty
     int p_o3_cnt0 = this->count_open_three(1);
@@ -633,8 +739,10 @@ float Wuziqi::evaluate_score_greedy(int row, int col)
                          + (p_o3_cnt * this->o3pts
                          + p_c3_cnt * this->c3pts
                          + p_d3_cnt * this->d3pts
+                         + p_j3_cnt * this->c3pts * 0.8
                          + p_o4_cnt * this->o4pts
                          + p_c4_cnt * this->c4pts
+                         + p_j4_cnt * this->c4pts * 0.8
                          + p_c5_cnt * this->c5pts)*k;
 
    return offense_score + defense_score;
