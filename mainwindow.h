@@ -20,17 +20,9 @@ public:
     ~MainWindow();
 
 private slots:
-    void on_spinBoxSize_valueChanged(int arg1);
+    void newGame();
+    void setupGame();
 
-    void on_radioButtonPlayer_clicked();
-
-    void on_radioButtonComputer_clicked();
-
-    void on_horizontalScrollBar_valueChanged(int value);
-
-
-    void on_comboBox_currentTextChanged(const QString &arg1);
-    void on_pushButton_clicked();
 
 protected:
     void mouseMoveEvent(QMouseEvent *event);
@@ -44,7 +36,8 @@ private:
 private:
     int game_size;
     bool player_first;
-    int lever;
+    int strategy_switch;
+    int search_depth;
     QString algorithm;
     int top_left_x;
     int top_left_y;
@@ -60,16 +53,23 @@ private:
     int game_status; // 0: off, 1: on, 2.
     int computer_move_row; // last move of computer
     int computer_move_col; // loas move of computer
+
+    // UI part
+    QMenu   *gameMenu;
+    QAction *actNewGame;
+    QAction *actSetup;
+    QAction *actAbout;
 private:
     void setup_board();
     void draw_board();
     bool get_row_col(int x, int y, int &row, int &col);
     void get_x_y(int row, int col, int &x, int &y);
-    void reset_board();
-    void disable_input();
-    void enable_input();
     void delete_board();
-    void initialize_game();
+    void init_game();
+
+    // UI part
+    void createMenus();
+    void createActions();
 
 };
 #endif // MAINWINDOW_H

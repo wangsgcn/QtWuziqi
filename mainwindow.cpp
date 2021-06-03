@@ -1,11 +1,15 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "dialog.h"
 #include <QPainter>
 #include <QPen>
 #include <QBrush>
 #include <QCursor>
 #include <QPalette>
 #include <QPixmap>
+#include <QMenu>
+#include <QMenuBar>
+#include <QAction>
 #include <cmath>
 
 MainWindow::MainWindow(QWidget *parent)
@@ -13,11 +17,16 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+    this->createActions();
+    this->createMenus();
 
+    // default values
     this->player_first = true;
-    this->game_size = 15;
-    this->algorithm = this->ui->comboBox->currentText();
-    this->lever = 0;
+    this->game_size = 19;
+    this->strategy_switch = 1;
+    this->algorithm = "Greedy";
+    this->search_depth = 1;
+
     this->X = NULL;
     this->Y = NULL;
     this->board = NULL;
@@ -27,79 +36,73 @@ MainWindow::MainWindow(QWidget *parent)
     this->ui->centralwidget->setMouseTracking(true);
     this->setMouseTracking(true);
 
-    this->game_status = 0;
+    this->game_status = GAME_OFF;
     this->setup_board();
-    this->initialize_game();
+    this->init_game();
 }
 
 MainWindow::~MainWindow()
 {
     delete ui;
+    this->delete_board();
 }
 
-
-
-void MainWindow::on_spinBoxSize_valueChanged(int arg1)
+void MainWindow::createMenus()
 {
-    // delete previous board before create a new board.
-    this->delete_board();
+    this->gameMenu = menuBar()->addMenu(tr("Game"));
+    this->gameMenu->addAction(this->actNewGame);
+    this->gameMenu->addAction(this->actSetup);
+}
 
-    if(arg1<10)
-    {
-        this->ui->spinBoxSize->setValue(10);
-        this->game_size = 10;
-    }
-    else if(arg1>25)
-    {
-        this->ui->spinBoxSize->setValue(25);
-        this->game_size = 25;
-    }
-    else
-    {
-        this->game_size = arg1;
-    }
+void MainWindow::createActions()
+{
+    this->actSetup   = new QAction("Setup Game");
+    this->actSetup->setMenuRole(QAction::NoRole);
+    this->actSetup->setShortcut(QKeySequence::Save);
 
-    this->initialize_game();
+    this->actNewGame = new QAction("New Game");
+    this->actNewGame->setShortcut(QKeySequence::New);
+
+    this->connect(this->actSetup,   SIGNAL(triggered()), this, SLOT(setupGame()));
+    this->connect(this->actNewGame, SIGNAL(triggered()), this, SLOT(newGame()));
+}
+
+void MainWindow::newGame()
+{
+    this->game_status = GAME_ON;
+    this->game = new Wuziqi(this->game_size, this->strategy_switch);
+    this->init_game();
+    this->setup_board();
     this->update();
 }
 
-
-
-
-void MainWindow::on_radioButtonPlayer_clicked()
+void MainWindow::setupGame()
 {
-    this->player_first = true;
+    Dialog *setupDiag = new Dialog;
+    setupDiag->exec();
+    setupDiag->get_game_setup(this->game_size,
+                              this->search_depth,
+                              this->player_first,
+                              this->strategy_switch,
+                              this->algorithm);
+    this->game_status = GAME_ON;
+    this->game = new Wuziqi(this->game_size, this->strategy_switch);
+    this->init_game();
+    this->setup_board();
+    this->update();
+
 }
 
-
-void MainWindow::on_radioButtonComputer_clicked()
-{
-    this->player_first = false;
-}
-
-
-
-void MainWindow::on_horizontalScrollBar_valueChanged(int value)
-{
-    this->lever = value; // range: 0-99
-}
-
-
-
-void MainWindow::on_comboBox_currentTextChanged(const QString &arg1)
-{
-    this->algorithm = arg1;
-}
 
 void MainWindow::mouseMoveEvent(QMouseEvent *event)
 {
     int row, col, x, y;
-    //x = event->x();  x() is deprecated in Qt.
-    //y = event->y();  y() is deprecated in Qt.y
-    x = event->position().x();
-    y = event->position().y();
+    x = event->pos().x();
+    y = event->pos().y();
 
-    if(this->get_row_col(x, y, row, col)==true && this->board[row][col]==0) // current point is not taken
+    if(this->game_status == GAME_ON            &&
+       this->get_row_col(x, y, row, col)==true &&  //
+       this->board[row][col]==0)                   // current point is not taken
     {
         this->ui->centralwidget->setCursor(Qt::PointingHandCursor);
     }
@@ -107,20 +110,16 @@ void MainWindow::mouseMoveEvent(QMouseEvent *event)
     {
         this->ui->centralwidget->setCursor(Qt::ArrowCursor);
     }
-    //this->ui->statusbar->showMessage(QString::number(event->x()) + "," + QString::number(event->y()));
-
 }
 
 void MainWindow::mousePressEvent(QMouseEvent *event)
 {
     // when game is running, respond to mouse press
-    if(this->game_status==1)
+    if(this->game_status==GAME_ON)
     {
         int x, y, row, col, move_row, move_col, winer_color;
-        // x = event->x();
-        // y = event->y();
-        x = event->position().x();
-        y = event->position().y();
+        x = event->pos().x();
+        y = event->pos().y();
         if(this->get_row_col(x, y, row, col)==true && this->board[row][col]==0) // the current position is not taken
         {
             this->board[row][col] = 1; // player move
@@ -128,7 +127,7 @@ void MainWindow::mousePressEvent(QMouseEvent *event)
             this->update();
             if(this->game->game_over(winer_color))
             {
-                this->game_status = 0;
+                this->game_status = GAME_OFF;
                 for(int n=0; n<5; n++)
                 {
                     int wr, wc;
@@ -138,19 +137,36 @@ void MainWindow::mousePressEvent(QMouseEvent *event)
                 }
                 this->draw_winner_flag = true;
                 this->ui->statusbar->showMessage("Player win!");
-                this->enable_input();
             }
             else
             {
-                this->game->get_move_greedy(move_row, move_col);
-                this->board[move_row][move_col] = 2;
-                this->game->set_stone(move_row, move_col, 2);
+                // choose AI algorithm for computing the next move
+                if(this->algorithm == "Greedy")
+                {
+                    this->game->get_move_greedy(move_row, move_col);
+                }
+                else if(this->algorithm == "Minimax")
+                {
+                    this->game->get_move_minimax(move_row, move_col);
+                }
+                else if(this->algorithm == "Minimax with Alpha Beta")
+                {
+                    this->game->get_move_minimax_ab(move_row, move_col);
+                }
+                else if(this->algorithm == "Greedy Minimax")
+                {
+                    this->game->get_move_minimax_ab_greedy(move_row, move_col);
+                }
+
+                this->board[move_row][move_col] = 2;             // this is for drawing board
+                this->game->set_stone(move_row, move_col, 2);    // this is for the Wuziqi class
+
                 // record the last move of computer
                 this->computer_move_row = move_row;
                 this->computer_move_col = move_col;
                 if(this->game->game_over(winer_color))
                 {
-                    this->game_status = 0;
+                    this->game_status = GAME_OFF;
                     for(int n=0; n<5; n++)
                     {
                         int wr, wc;
@@ -160,37 +176,34 @@ void MainWindow::mousePressEvent(QMouseEvent *event)
                     }
                     this->draw_winner_flag = true;
                     this->ui->statusbar->showMessage("Computer win!");
-                    this->enable_input();
                 }
             }
             this->update();
         }
-        //this->ui->statusbar->showMessage(QString::number(row) + "," + QString::number(col));
-        //this->update();
     }
 }
 
 void MainWindow::setup_board()
 {
     // setup board
-    int window_width = this->size().rwidth();
-    int window_height = this->size().rheight()-160;
-    int board_margin = 30;
+    int window_width  = this->size().rwidth();
+    // window height - the height of status bar
+    int window_height = this->size().rheight() -  this->ui->statusbar->size().rheight();
+    // board edge = one grid width
+    float board_ratio = this->game_size/(this->game_size + 2.0);
     if(window_height<window_width)
     {
-        this->board_size = window_height - 2*board_margin;
+        this->board_size = (int)(window_height * board_ratio);
     }
     else
     {
-        this->board_size = window_width - 2*board_margin;
+        this->board_size = (int)(window_width * board_ratio);
     }
-
-
 
     this->grid_size = this->board_size/(this->game_size-1);
 
-    this->top_left_y = 160;// + (window_height - this->grid_size*(this->game_size-1))/2;
-    this->top_left_x = (window_width - this->grid_size*(this->game_size-1))/2; // adjust top left x to make the board being always in the center of window.
+    this->top_left_y = (window_height - this->grid_size*(this->game_size-1))/2;
+    this->top_left_x = (window_width  - this->grid_size*(this->game_size-1))/2; // adjust top left x to make the board being always in the center of window.
 
 
     if(this->X != NULL)
@@ -349,11 +362,8 @@ void MainWindow::draw_board()
 
 void MainWindow::paintEvent(QPaintEvent *event)
 {
-    //if(this->game_status==1)
-    //{
-        this->setup_board();
-        this->draw_board();
-    //}
+    this->setup_board();
+    this->draw_board();
 }
 
 bool MainWindow::get_row_col(int x, int y, int &row, int &col)
@@ -384,24 +394,6 @@ void MainWindow::get_x_y(int row, int col, int &x, int &y)
     y = this->Y[row];
 }
 
-void MainWindow::reset_board()
-{
-    // allocae memory for B
-    this->board = new int*[this->game_size];
-    for(int r=0; r<this->game_size; r++)
-    {
-        this->board[r] = new int[this->game_size];
-
-    }
-    // initialize B to be 0, empty
-    for(int r=0; r<this->game_size; r++)
-    {
-        for(int c=0; c<this->game_size; c++)
-        {
-            this->board[r][c] = 0;  // 0 - empty, 1 - player, 2 - computer
-        }
-    }
-}
 
 void MainWindow::delete_board()
 {
@@ -416,42 +408,11 @@ void MainWindow::delete_board()
     }
 }
 
-void MainWindow::on_pushButton_clicked()
-{
-    // reset last move of computer
-    this->computer_move_row = -1;
-    this->computer_move_col = -1;
-    // set game status
-    this->game_status = 1;
-    this->game = new Wuziqi(this->game_size, this->lever);
-    this->setup_board();
-    this->initialize_game();
-    this->disable_input();
-    this->update();
-}
-
-void MainWindow::disable_input()
-{
-    this->ui->comboBox->setDisabled(true);
-    this->ui->spinBoxSize->setDisabled(true);
-    this->ui->horizontalScrollBar->setDisabled(true);
-    this->ui->radioButtonComputer->setDisabled(true);
-    this->ui->radioButtonPlayer->setDisabled(true);
-}
-
-void MainWindow::enable_input()
-{
-    this->ui->comboBox->setDisabled(false);
-    this->ui->spinBoxSize->setDisabled(false);
-    this->ui->horizontalScrollBar->setDisabled(false);
-    this->ui->radioButtonComputer->setDisabled(false);
-    this->ui->radioButtonPlayer->setDisabled(false);
-}
-
-void MainWindow::initialize_game()
+void MainWindow::init_game()
 {
     // allocae memory for B
     this->board = new int*[this->game_size];
+
     for(int r=0; r<this->game_size; r++)
     {
         this->board[r] = new int[this->game_size];
